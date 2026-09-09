@@ -1,83 +1,47 @@
 # Docx Template Filler (Streamlit)
 
-## Paano patakbuhin
+## Features
 
-1. I-install ang requirements:
-   ```
-   pip install -r requirements.txt
-   ```
-2. Patakbuhin ang app:
-   ```
-   streamlit run app.py
-   ```
-3. Buksan sa browser (auto-open, or http://localhost:8501)
+- Upload one or more `.docx` templates containing `{{PLACEHOLDER}}` fields.
+- Auto-detect placeholders in body text, tables, nested tables, headers/footers, and text boxes/floating shapes.
+- Date fields use a calendar picker.
+- Dates are inserted in `MM/DD/YYYY` format.
+- Blank fields become blank in the generated document.
+- Generate completed Word files while preserving surrounding template formatting.
+- Download one Word file directly or multiple Word files as a ZIP.
 
-## Paano gamitin
+## Run locally
 
-1. **Upload** — i-drag/drop ang isa o higit pang `.docx` na may `{{PLACEHOLDER}}` fields
-   (e.g. `{{Client_Name}}`, `{{BRAND}}`, `{{UNIT_DESCRIPTION}}`).
-2. Awtomatikong ma-detect lahat ng unique `{{...}}` fields sa file(s) — kasama na
-   ang mga nasa loob ng tables, headers/footers, **at text boxes / floating shapes**
-   (madalas nasa text box ang mga logo/endorsement sections sa mga bank forms,
-   kaya sinisigurado ng app na masi-scan din yun).
-3. **Fill out the form** — isang beses lang i-type ang value; kung parehong field
-   ang lumalabas sa dalawang template (hal. Client_Name), isang input lang ang
-   kailangan, applied na sa lahat.
-4. **I-generate at i-download agad** — pagka-submit ng form, direktang ma-generate
-   ang final na `.docx` (o `.zip` kung marami) at lalabas na yung download button —
-   wala nang hiwalay na "Review" page.
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-## Deployment (Streamlit Community Cloud)
+## Streamlit Community Cloud
 
-1. I-push ang `app.py` at `requirements.txt` sa isang GitHub repo.
-2. Sa https://share.streamlit.io , i-connect ang repo, piliin ang `app.py` bilang
-   entry point, deploy.
-3. Multiple users can use it at the same time — walang shared/global state,
-   session-scoped lahat (`st.session_state`) at in-memory lang ang processing
-   (walang temp files sa disk), kaya safe at magaan kahit maraming user sabay-sabay.
+Commit only these files:
 
-## Mahalagang paalala
+```text
+app.py
+requirements.txt
+```
 
-- Original formatting (fonts, bold, tables, spacing, logos sa text boxes) ng
-  template ay **hindi nagbabago** — {{placeholders}} lang ang pinapalitan,
-  kahit saan pa man ito nasa loob ng document.
-- Kung may bagong template na ipapa-upload ng users mo na may ibang field
-  names (basta naka-`{{LIKE_THIS}}` format), automatic na siyang made-detect —
-  walang kailangang i-edit sa code.
-- Pagkatapos i-download, may button pang "Edit fields & regenerate" kung
-  gusto mong ayusin lang ang typo nang hindi na-uupload ulit ang file.
-
-## Tungkol sa file size
-
-Medyo mas maliit (o kaunti lang ang pagkakaiba) ang size ng na-generate na
-`.docx` kumpara sa orihinal na template — **normal lang po ito, hindi bug.**
-Ang `.docx` ay isang ZIP na naglalaman ng maraming XML files sa loob; anumang
-tool na nag-e-edit at nag-se-save ng `.docx` programmatically (kasama na mismo
-ang Microsoft Word) ay muling ina-assemble/kino-compress ang ZIP package na
-iyon, kaya hindi na ito magiging eksaktong parehong bytes gaya ng orihinal —
-kahit walang binago sa laman. Ito ay hindi naaapektuhan ang aktwal na laman,
-formatting, larawan, o layout ng dokumento (na-verify namin ito sa pamamagitan
-ng pag-render sa PDF).
-
-Na-fix na rin namin ang isang dating side-effect: ang app dati ay
-naka-a-access sa `section.header` / `.footer` ng bawat section kahit walang
-custom header/footer ang template — at ito pala ay awtomatikong gumagawa ng
-bagong blangkong header/footer XML part sa loob ng docx (kahit walang laman),
-na siyang nagpapalaki ng file at minsan pati nagbabago ng bilang ng pages.
-Naka-guard na ito ngayon — hinihipo lang ng app ang isang header/footer kung
-talagang mayroon na itong sariling laman sa orihinal na template.
+Do **not** add `packages.txt`. This version has no PDF conversion and does not require LibreOffice or any Linux/APT dependency.
 
 ## Date fields
 
-Date placeholders use a calendar picker and are formatted as `MM/DD/YYYY`.
+Any placeholder whose name contains `DATE` uses the Streamlit calendar picker. The selected date is written as:
 
-## Download formats
+```text
+MM/DD/YYYY
+```
 
-The download screen supports **Word (.docx)** and **PDF (.pdf)**. PDF conversion uses LibreOffice.
+Example:
 
-## Optional na fields
+```text
+09/09/2026
+```
 
-Wala nang required fields — pwede mo nang i-submit ang form kahit may mga
-blangkong field. Kung iiwan mong blangko ang isang field, magiging blangko
-lang din ito sa final na `.docx` — hindi na lalabas ang literal na
-`{{PLACEHOLDER}}` text sa output.
+## Download
+
+This version intentionally downloads **Word (.docx) only**. If multiple templates are generated, the app also provides a ZIP containing all completed Word files.

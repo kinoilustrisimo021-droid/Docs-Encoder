@@ -23,11 +23,7 @@ processing happens in-memory, scoped to each user's own session.
 """
 
 import io
-import os
 import re
-import shutil
-import subprocess
-import tempfile
 import zipfile
 from dataclasses import dataclass, field
 
@@ -172,49 +168,6 @@ def fill_template(file_bytes: bytes, mapping: dict) -> bytes:
     doc.save(out)
     return out.getvalue()
 
-
-def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
-    """Convert a DOCX to PDF using LibreOffice in headless mode."""
-    soffice = shutil.which("libreoffice") or shutil.which("soffice")
-    if not soffice:
-        raise RuntimeError(
-            "PDF conversion requires LibreOffice. Install LibreOffice and try again."
-        )
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        input_path = os.path.join(tmpdir, "document.docx")
-        output_dir = os.path.join(tmpdir, "pdf")
-        os.makedirs(output_dir, exist_ok=True)
-
-        with open(input_path, "wb") as f:
-            f.write(docx_bytes)
-
-        result = subprocess.run(
-            [
-                soffice,
-                "--headless",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                output_dir,
-                input_path,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=120,
-        )
-
-        output_path = os.path.join(output_dir, "document.pdf")
-        if result.returncode != 0 or not os.path.exists(output_path):
-            details = (result.stderr or result.stdout).strip()
-            raise RuntimeError(
-                "LibreOffice could not convert the document to PDF."
-                + (f" {details}" if details else "")
-            )
-
-        with open(output_path, "rb") as f:
-            return f.read()
 
 
 def label_for(key: str) -> str:
@@ -382,65 +335,26 @@ elif state.step == "done":
 
     filled = state.filled
 
-    download_format = st.radio(
-        "Choose download format",
-        options=["Word (.docx)", "PDF (.pdf)"],
-        horizontal=True,
-        key="download_format",
-    )
-
-    is_pdf = download_format == "PDF (.pdf)"
-
-    # Convert only when PDF is selected. Results are kept in session memory.
-    download_files = []
-    conversion_error = None
-
-    if is_pdf:
-        with st.spinner("Preparing PDF file(s)..."):
-            for f in filled:
-                try:
-                    pdf_bytes = convert_docx_to_pdf(f["bytes"])
-                    pdf_name = f["name"].rsplit(".", 1)[0] + ".pdf"
-                    download_files.append({"name": pdf_name, "bytes": pdf_bytes})
-                except Exception as e:
-                    conversion_error = str(e)
-                    break
-    else:
-        download_files = filled
-
-    if conversion_error:
-        st.error(conversion_error)
-        st.info(
-            "Word downloads are still available. For PDF downloads, install "
-            "LibreOffice on the machine/server running Streamlit."
-        )
-    elif len(download_files) == 1:
-        f = download_files[0]
-        mime = (
-            "application/pdf"
-            if is_pdf
-            else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-
+    if len(filled) == 1:
+        f = filled[0]
         st.download_button(
             "⬇️ Download " + f["name"],
             data=f["bytes"],
             file_name=f["name"],
-            mime=mime,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             type="primary",
             use_container_width=True,
         )
     else:
-        extension = "pdf" if is_pdf else "docx"
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for f in download_files:
+            for f in filled:
                 zf.writestr(f["name"], f["bytes"])
 
         st.download_button(
-            f"⬇️ Download all as .zip ({extension})",
+            "⬇️ Download all as .zip",
             data=zip_buf.getvalue(),
-            file_name=f"filled_documents_{extension}.zip",
+            file_name="filled_documents.zip",
             mime="application/zip",
             type="primary",
             use_container_width=True,
@@ -448,16 +362,13 @@ elif state.step == "done":
 
         st.divider()
         st.caption("Or download individually:")
-        for f in download_files:
-            mime = "application/pdf" if is_pdf else (
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
+        for f in filled:
             st.download_button(
                 f["name"],
                 data=f["bytes"],
                 file_name=f["name"],
-                mime=mime,
-                key=f"dl_{download_format}_{f['name']}",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key=f"dl_{f['name']}",
             )
 
     st.divider()
