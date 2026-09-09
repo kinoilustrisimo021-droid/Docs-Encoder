@@ -177,11 +177,11 @@ def widget_for(key: str, current_value: str):
     upper = key.upper()
     if any(h in upper for h in DATE_HINTS):
         return st.text_input(
-            f"{label_for(key)} *", value=current_value, placeholder="e.g. January 5, 2026", key=f"field_{key}"
+            label_for(key), value=current_value, placeholder="e.g. January 5, 2026", key=f"field_{key}"
         )
     if any(h in upper for h in LONG_TEXT_HINTS):
-        return st.text_area(f"{label_for(key)} *", value=current_value, key=f"field_{key}", height=80)
-    return st.text_input(f"{label_for(key)} *", value=current_value, key=f"field_{key}")
+        return st.text_area(label_for(key), value=current_value, key=f"field_{key}", height=80)
+    return st.text_input(label_for(key), value=current_value, key=f"field_{key}")
 
 
 # --------------------------------------------------------------------------
@@ -215,7 +215,7 @@ def reset_all():
 # --------------------------------------------------------------------------
 st.title("📄 Docx Template Filler")
 st.caption(
-    "Upload your Word template(s) with {{placeholders}} → fill in the required fields → "
+    "Upload your Word template(s) with {{placeholders}} → fill in the fields you need → "
     "download the completed document(s) instantly, formatting untouched."
 )
 
@@ -274,8 +274,11 @@ if state.step == "upload":
 
 # --- Step 2: Dynamic form -> generate & download immediately ---------------
 elif state.step == "fill":
-    st.subheader("Fill in the required fields")
-    st.caption(f"{len(state.templates)} template(s) loaded · {len(state.placeholders)} field(s) to fill")
+    st.subheader("Fill in the fields")
+    st.caption(
+        f"{len(state.templates)} template(s) loaded · {len(state.placeholders)} field(s) · "
+        "any field left blank will just be left blank in the final document."
+    )
 
     with st.form("fill_form"):
         new_values = {}
@@ -293,28 +296,21 @@ elif state.step == "fill":
         st.rerun()
 
     if submitted:
-        missing = [k for k, v in new_values.items() if not str(v).strip()]
         state.values = new_values
-        if missing:
-            st.error(
-                "Please fill in all required fields: "
-                + ", ".join(label_for(k) for k in missing)
-            )
-        else:
-            filled = []
-            for t in state.templates:
-                try:
-                    out_bytes = fill_template(t["bytes"], state.values)
-                except Exception as e:
-                    st.error(f"Failed to generate {t['name']}: {e}")
-                    continue
-                stem = t["name"].rsplit(".", 1)[0]
-                filled.append({"name": f"{stem}_filled.docx", "bytes": out_bytes})
+        filled = []
+        for t in state.templates:
+            try:
+                out_bytes = fill_template(t["bytes"], state.values)
+            except Exception as e:
+                st.error(f"Failed to generate {t['name']}: {e}")
+                continue
+            stem = t["name"].rsplit(".", 1)[0]
+            filled.append({"name": f"{stem}_filled.docx", "bytes": out_bytes})
 
-            if filled:
-                state.filled = filled
-                go_to("done")
-                st.rerun()
+        if filled:
+            state.filled = filled
+            go_to("done")
+            st.rerun()
 
 # --- Step 3: Download --------------------------------------------------------
 elif state.step == "done":
