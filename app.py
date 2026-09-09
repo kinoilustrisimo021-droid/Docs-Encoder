@@ -20,6 +20,9 @@ The app will:
 Nothing is written to disk and no global/shared state is used, so this is
 safe to run for many concurrent users on the same Streamlit server - all
 processing happens in-memory, scoped to each user's own session.
+
+UI NOTE: only the presentation layer below has changed (dark / glassmorphism
+theme + animated background). All document-processing logic is untouched.
 """
 
 import io
@@ -169,7 +172,6 @@ def fill_template(file_bytes: bytes, mapping: dict) -> bytes:
     return out.getvalue()
 
 
-
 def label_for(key: str) -> str:
     return key.replace("_", " ").strip().title()
 
@@ -227,32 +229,363 @@ def reset_all():
     st.session_state.state = AppState()
 
 
+# ==========================================================================
+# THEME — dark / glassmorphism / animated background
+# ==========================================================================
+def inject_theme():
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+        :root{
+            --bg-0:#05060c;
+            --bg-1:#080a16;
+            --panel-bg: rgba(17, 19, 34, 0.55);
+            --panel-border: rgba(255,255,255,0.09);
+            --text-primary:#eef0fb;
+            --text-muted: rgba(222,225,245,0.55);
+            --glow-purple: rgba(168, 85, 247, 0.45);
+            --glow-blue: rgba(59, 130, 246, 0.40);
+            --glow-cyan: rgba(34, 211, 238, 0.40);
+            --accent-grad: linear-gradient(120deg, #7c3aed 0%, #3b82f6 55%, #22d3ee 100%);
+        }
+
+        html, body, [class*="css"]{
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ---------- base app background ---------- */
+        .stApp{
+            background:
+                radial-gradient(circle at 15% 20%, rgba(124,58,237,0.16), transparent 40%),
+                radial-gradient(circle at 85% 15%, rgba(34,211,238,0.12), transparent 42%),
+                radial-gradient(circle at 50% 90%, rgba(59,130,246,0.14), transparent 45%),
+                linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* hide default streamlit chrome for a minimal shell */
+        #MainMenu{visibility:hidden;}
+        footer{visibility:hidden;}
+        header[data-testid="stHeader"]{
+            background: transparent;
+            box-shadow: none;
+        }
+        [data-testid="stToolbar"]{visibility:hidden;}
+        [data-testid="stDecoration"]{display:none;}
+
+        /* ---------- vertical + horizontal centering ---------- */
+        [data-testid="stAppViewContainer"] > .main{
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        /* ---------- the glass card that holds everything ---------- */
+        .main .block-container{
+            max-width: 620px;
+            width: 100%;
+            background: var(--panel-bg);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            border: 1px solid var(--panel-border);
+            border-radius: 28px;
+            padding: 3rem 2.6rem 2.6rem 2.6rem;
+            position: relative;
+            z-index: 2;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.02) inset,
+                0 30px 90px -20px rgba(0,0,0,0.65),
+                0 0 120px -40px var(--glow-purple);
+            animation: card-glow 8s ease-in-out infinite;
+        }
+
+        @keyframes card-glow{
+            0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 30px 90px -20px rgba(0,0,0,0.65), 0 0 100px -45px var(--glow-purple); }
+            50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 30px 90px -20px rgba(0,0,0,0.65), 0 0 130px -35px var(--glow-cyan); }
+        }
+
+        /* ---------- background decorative layer ---------- */
+        .bg-decor{
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .bg-orb{
+            position:absolute;
+            border-radius:50%;
+            filter: blur(6px);
+            opacity:0.55;
+        }
+        .orb-a{ width:320px; height:320px; left:6%; top:8%;
+            background: radial-gradient(circle, var(--glow-purple), transparent 70%);
+            animation: drift-a 26s ease-in-out infinite; }
+        .orb-b{ width:260px; height:260px; right:8%; top:18%;
+            background: radial-gradient(circle, var(--glow-cyan), transparent 70%);
+            animation: drift-b 30s ease-in-out infinite; }
+        .orb-c{ width:380px; height:380px; left:20%; bottom:-8%;
+            background: radial-gradient(circle, var(--glow-blue), transparent 70%);
+            animation: drift-c 34s ease-in-out infinite; }
+        .orb-d{ width:200px; height:200px; right:14%; bottom:6%;
+            background: radial-gradient(circle, var(--glow-purple), transparent 70%);
+            animation: drift-a 22s ease-in-out infinite reverse; }
+
+        @keyframes drift-a{
+            0%,100%{ transform: translate(0,0) scale(1); }
+            50%{ transform: translate(40px,50px) scale(1.08); }
+        }
+        @keyframes drift-b{
+            0%,100%{ transform: translate(0,0) scale(1); }
+            50%{ transform: translate(-50px,35px) scale(0.94); }
+        }
+        @keyframes drift-c{
+            0%,100%{ transform: translate(0,0) scale(1); }
+            50%{ transform: translate(35px,-45px) scale(1.06); }
+        }
+
+        .bg-particle{
+            position:absolute;
+            width:4px; height:4px;
+            border-radius:50%;
+            background: rgba(210,220,255,0.7);
+            box-shadow: 0 0 8px 2px rgba(150,180,255,0.5);
+        }
+        .p1{ left:12%; top:30%; animation: float-p1 14s ease-in-out infinite; }
+        .p2{ left:78%; top:22%; animation: float-p2 17s ease-in-out infinite; }
+        .p3{ left:35%; top:70%; animation: float-p3 12s ease-in-out infinite; }
+        .p4{ left:88%; top:60%; animation: float-p1 19s ease-in-out infinite reverse; }
+        .p5{ left:55%; top:12%; animation: float-p2 15s ease-in-out infinite; }
+        .p6{ left:22%; top:85%; animation: float-p3 20s ease-in-out infinite reverse; }
+
+        @keyframes float-p1{
+            0%,100%{ transform: translate(0,0); opacity:0.3; }
+            50%{ transform: translate(18px,-26px); opacity:0.9; }
+        }
+        @keyframes float-p2{
+            0%,100%{ transform: translate(0,0); opacity:0.25; }
+            50%{ transform: translate(-22px,20px); opacity:0.8; }
+        }
+        @keyframes float-p3{
+            0%,100%{ transform: translate(0,0); opacity:0.35; }
+            50%{ transform: translate(14px,24px); opacity:0.85; }
+        }
+
+        .bg-ring{
+            position:absolute;
+            border-radius:50%;
+            border: 1px solid rgba(150,170,255,0.14);
+        }
+        .r1{ width:520px; height:520px; left:-120px; top:-140px; animation: spin-cw 70s linear infinite; }
+        .r2{ width:640px; height:640px; right:-200px; bottom:-220px; border-color: rgba(120,230,255,0.10); animation: spin-ccw 90s linear infinite; }
+
+        @keyframes spin-cw{ from{ transform: rotate(0deg);} to{ transform: rotate(360deg);} }
+        @keyframes spin-ccw{ from{ transform: rotate(0deg);} to{ transform: rotate(-360deg);} }
+
+        .bg-doc{
+            position:absolute;
+            font-size: 1.6rem;
+            opacity:0.18;
+            filter: drop-shadow(0 0 6px rgba(140,160,255,0.4));
+        }
+        .d1{ left:10%; top:55%; animation: float-doc 9s ease-in-out infinite; }
+        .d2{ right:16%; top:38%; animation: float-doc 11s ease-in-out infinite reverse; }
+        .d3{ left:48%; top:82%; animation: float-doc 8s ease-in-out infinite; }
+
+        @keyframes float-doc{
+            0%,100%{ transform: translateY(0) rotate(-4deg); }
+            50%{ transform: translateY(-16px) rotate(4deg); }
+        }
+
+        /* ---------- main icon + title ---------- */
+        .app-icon{
+            text-align:center;
+            font-size: 3.4rem;
+            line-height:1;
+            margin-bottom: 0.6rem;
+            filter: drop-shadow(0 0 18px var(--glow-purple));
+            animation: float-doc 6s ease-in-out infinite;
+        }
+        .app-title{
+            text-align:center;
+            font-family:'Sora', sans-serif;
+            font-weight:700;
+            font-size: 1.9rem;
+            letter-spacing:0.2px;
+            margin: 0 0 2.2rem 0;
+            background: var(--accent-grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .step-title{
+            text-align:center;
+            font-family:'Sora', sans-serif;
+            font-weight:600;
+            font-size: 1.3rem;
+            color: var(--text-primary);
+            margin: 0 0 1.6rem 0;
+        }
+        .ghost-back{
+            text-align:center;
+            margin-bottom: 0.6rem;
+        }
+
+        /* ---------- file uploader as a glowing dropzone ---------- */
+        [data-testid="stFileUploaderDropzone"]{
+            background: rgba(255,255,255,0.02);
+            border: 1.5px dashed rgba(150,170,255,0.35);
+            border-radius: 20px;
+            padding: 1.2rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            animation: pulse-drop 4.5s ease-in-out infinite;
+        }
+        [data-testid="stFileUploaderDropzone"]:hover{
+            border-color: rgba(180,200,255,0.6);
+        }
+        @keyframes pulse-drop{
+            0%,100%{ box-shadow: 0 0 0px 0px rgba(124,58,237,0.0); }
+            50%{ box-shadow: 0 0 26px 4px rgba(124,58,237,0.22); }
+        }
+        [data-testid="stFileUploaderDropzoneInstructions"] div,
+        [data-testid="stFileUploaderDropzoneInstructions"] span{
+            color: var(--text-muted) !important;
+            font-size: 0.82rem !important;
+        }
+        [data-testid="stFileUploaderDropzoneInstructions"] svg{
+            fill: rgba(180,200,255,0.7) !important;
+        }
+        /* relabel the native "Browse files" button to "Upload" */
+        [data-testid="stFileUploaderDropzone"] button{
+            background: var(--accent-grad) !important;
+            color: #fff !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.5rem 1.3rem !important;
+            font-weight: 600 !important;
+            box-shadow: 0 6px 20px -6px rgba(124,58,237,0.6);
+        }
+        [data-testid="stFileUploaderDropzone"] button p{
+            visibility:hidden;
+            position:relative;
+        }
+        [data-testid="stFileUploaderDropzone"] button p::after{
+            content: "Upload";
+            visibility: visible;
+            position:absolute;
+            left:0; top:0; right:0;
+        }
+        [data-testid="stFileUploaderFile"]{
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+        }
+
+        /* ---------- generic buttons ---------- */
+        .stButton button, .stDownloadButton button, .stFormSubmitButton button{
+            border-radius: 12px !important;
+            font-weight: 600 !important;
+            border: 1px solid var(--panel-border) !important;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .stButton button:hover, .stDownloadButton button:hover, .stFormSubmitButton button:hover{
+            transform: translateY(-1px);
+        }
+        button[kind="primary"], button[kind="primaryFormSubmit"]{
+            background: var(--accent-grad) !important;
+            border: none !important;
+            box-shadow: 0 8px 24px -8px rgba(124,58,237,0.6);
+        }
+        button[kind="secondary"], button[kind="secondaryFormSubmit"]{
+            background: rgba(255,255,255,0.04) !important;
+            color: var(--text-primary) !important;
+        }
+
+        /* ---------- inputs ---------- */
+        .stTextInput input, .stTextArea textarea, .stDateInput input{
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid var(--panel-border) !important;
+            border-radius: 10px !important;
+            color: var(--text-primary) !important;
+        }
+        .stTextInput label, .stTextArea label, .stDateInput label{
+            color: var(--text-muted) !important;
+            font-size: 0.85rem !important;
+        }
+
+        /* ---------- alerts, expanders ---------- */
+        [data-testid="stAlert"]{
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid var(--panel-border) !important;
+            border-radius: 12px !important;
+            color: var(--text-primary) !important;
+        }
+        [data-testid="stExpander"]{
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid var(--panel-border) !important;
+            border-radius: 12px !important;
+        }
+        [data-testid="stCaptionContainer"]{
+            color: var(--text-muted) !important;
+        }
+        hr{ border-color: var(--panel-border) !important; }
+
+        /* ---------- responsive ---------- */
+        @media (max-width: 640px){
+            .main .block-container{
+                padding: 2.2rem 1.4rem;
+                border-radius: 22px;
+            }
+            .app-icon{ font-size: 2.6rem; }
+            .app-title{ font-size: 1.5rem; }
+        }
+        </style>
+
+        <div class="bg-decor">
+            <div class="bg-orb orb-a"></div>
+            <div class="bg-orb orb-b"></div>
+            <div class="bg-orb orb-c"></div>
+            <div class="bg-orb orb-d"></div>
+            <div class="bg-ring r1"></div>
+            <div class="bg-ring r2"></div>
+            <div class="bg-particle p1"></div>
+            <div class="bg-particle p2"></div>
+            <div class="bg-particle p3"></div>
+            <div class="bg-particle p4"></div>
+            <div class="bg-particle p5"></div>
+            <div class="bg-particle p6"></div>
+            <div class="bg-doc d1">📄</div>
+            <div class="bg-doc d2">📄</div>
+            <div class="bg-doc d3">📄</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+inject_theme()
+
 # --------------------------------------------------------------------------
 # UI
 # --------------------------------------------------------------------------
-st.title("📄 Docx Template Filler")
-st.caption(
-    "Upload your Word template(s) with {{placeholders}} → fill in the fields you need → "
-    "download the completed document(s) instantly, formatting untouched."
-)
-
-with st.sidebar:
-    st.subheader("How it works")
-    st.markdown(
-        "1. **Upload** one or more `.docx` templates\n"
-        "2. Fill out the **auto-generated form**\n"
-        "3. **Download** the finished document(s) right away"
-    )
-    if state.step != "upload":
-        st.divider()
-        if st.button("🔄 Start over", use_container_width=True):
-            reset_all()
-            st.rerun()
 
 # --- Step 1: Upload -------------------------------------------------------
 if state.step == "upload":
+    st.markdown('<div class="app-icon">📄</div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-title">Docx Template Filler</div>', unsafe_allow_html=True)
+
     uploaded = st.file_uploader(
-        "Upload template(s) (.docx)", type=["docx"], accept_multiple_files=True
+        "Upload template",
+        type=["docx"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
     )
 
     if uploaded:
@@ -273,29 +606,18 @@ if state.step == "upload":
             st.error(f"Could not read: {', '.join(bad_files)}. Please re-upload a valid .docx file.")
 
         if placeholders:
-            st.success(f"Found {len(placeholders)} field(s) across {len(templates)} file(s).")
-            with st.expander("Detected fields", expanded=False):
-                st.write(", ".join(f"{{{{{k}}}}}" for k in placeholders))
-
-            if st.button("Continue to form →", type="primary"):
+            if st.button("Continue →", type="primary", use_container_width=True):
                 state.templates = templates
                 state.placeholders = list(placeholders.keys())
                 state.values = {k: "" for k in state.placeholders}
                 go_to("fill")
                 st.rerun()
         else:
-            st.warning(
-                "No `{{placeholder}}` fields were found in the uploaded file(s). "
-                "Make sure the template uses double curly braces, e.g. {{Client_Name}}."
-            )
+            st.warning("No `{{placeholder}}` fields were found in this file.")
 
 # --- Step 2: Dynamic form -> generate & download immediately ---------------
 elif state.step == "fill":
-    st.subheader("Fill in the fields")
-    st.caption(
-        f"{len(state.templates)} template(s) loaded · {len(state.placeholders)} field(s) · "
-        "any field left blank will just be left blank in the final document."
-    )
+    st.markdown('<div class="step-title">Fill in the fields</div>', unsafe_allow_html=True)
 
     with st.form("fill_form"):
         new_values = {}
@@ -304,9 +626,9 @@ elif state.step == "fill":
 
         col1, col2 = st.columns([1, 1])
         with col1:
-            back = st.form_submit_button("← Back")
+            back = st.form_submit_button("← Back", use_container_width=True)
         with col2:
-            submitted = st.form_submit_button("✅ Generate & download →", type="primary")
+            submitted = st.form_submit_button("Generate →", type="primary", use_container_width=True)
 
     if back:
         go_to("upload")
@@ -331,7 +653,7 @@ elif state.step == "fill":
 
 # --- Step 3: Download --------------------------------------------------------
 elif state.step == "done":
-    st.subheader("✅ Done! Your document(s) are ready")
+    st.markdown('<div class="step-title">Ready to download</div>', unsafe_allow_html=True)
 
     filled = state.filled
 
@@ -360,25 +682,24 @@ elif state.step == "done":
             use_container_width=True,
         )
 
-        st.divider()
-        st.caption("Or download individually:")
-        for f in filled:
-            st.download_button(
-                f["name"],
-                data=f["bytes"],
-                file_name=f["name"],
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key=f"dl_{f['name']}",
-            )
+        with st.expander("Download individually"):
+            for f in filled:
+                st.download_button(
+                    f["name"],
+                    data=f["bytes"],
+                    file_name=f["name"],
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key=f"dl_{f['name']}",
+                    use_container_width=True,
+                )
 
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns([1, 1])
     with col1:
-        if st.button("✏️ Edit fields & regenerate", use_container_width=True):
+        if st.button("✏️ Edit fields", use_container_width=True):
             go_to("fill")
             st.rerun()
     with col2:
-        if st.button("🔄 Start over with new file(s)", use_container_width=True):
+        if st.button("🔄 Start over", use_container_width=True):
             reset_all()
             st.rerun()
-
