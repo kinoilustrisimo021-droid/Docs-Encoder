@@ -65,7 +65,15 @@ def _iter_paragraphs_in(xml_element, parent):
 
 def iter_all_paragraphs(doc: Document):
     """Every paragraph in the whole document: body, tables, nested tables,
-    text boxes/shapes, and every header/footer of every section."""
+    text boxes/shapes, and every header/footer of every section.
+
+    Important: python-docx silently creates a brand-new (blank) header/footer
+    XML part the moment you so much as *read* `section.header` / `.footer`
+    when the original template never defined one for that section (it was
+    just inheriting the default blank header/footer). That bloats the saved
+    file with parts that were never in the original, so we check
+    `is_linked_to_previous` first (a safe, read-only check) and only touch
+    a header/footer if it actually already exists in the template."""
     yield from _iter_paragraphs_in(doc.element.body, doc)
 
     for section in doc.sections:
@@ -77,7 +85,7 @@ def iter_all_paragraphs(doc: Document):
             section.even_page_header,
             section.even_page_footer,
         ):
-            if hf is None:
+            if hf is None or hf.is_linked_to_previous:
                 continue
             yield from _iter_paragraphs_in(hf._element, hf)
 

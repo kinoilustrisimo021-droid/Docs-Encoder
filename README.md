@@ -46,3 +46,23 @@
   walang kailangang i-edit sa code.
 - Pagkatapos i-download, may button pang "Edit fields & regenerate" kung
   gusto mong ayusin lang ang typo nang hindi na-uupload ulit ang file.
+
+## Tungkol sa file size
+
+Medyo mas maliit (o kaunti lang ang pagkakaiba) ang size ng na-generate na
+`.docx` kumpara sa orihinal na template — **normal lang po ito, hindi bug.**
+Ang `.docx` ay isang ZIP na naglalaman ng maraming XML files sa loob; anumang
+tool na nag-e-edit at nag-se-save ng `.docx` programmatically (kasama na mismo
+ang Microsoft Word) ay muling ina-assemble/kino-compress ang ZIP package na
+iyon, kaya hindi na ito magiging eksaktong parehong bytes gaya ng orihinal —
+kahit walang binago sa laman. Ito ay hindi naaapektuhan ang aktwal na laman,
+formatting, larawan, o layout ng dokumento (na-verify namin ito sa pamamagitan
+ng pag-render sa PDF).
+
+Na-fix na rin namin ang isang dating side-effect: ang app dati ay
+naka-a-access sa `section.header` / `.footer` ng bawat section kahit walang
+custom header/footer ang template — at ito pala ay awtomatikong gumagawa ng
+bagong blangkong header/footer XML part sa loob ng docx (kahit walang laman),
+na siyang nagpapalaki ng file at minsan pati nagbabago ng bilang ng pages.
+Naka-guard na ito ngayon — hinihipo lang ng app ang isang header/footer kung
+talagang mayroon na itong sariling laman sa orihinal na template.
