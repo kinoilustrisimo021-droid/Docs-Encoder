@@ -67,6 +67,14 @@ na siyang nagpapalaki ng file at minsan pati nagbabago ng bilang ng pages.
 Naka-guard na ito ngayon — hinihipo lang ng app ang isang header/footer kung
 talagang mayroon na itong sariling laman sa orihinal na template.
 
+## Date fields
+
+Date placeholders use a calendar picker and are formatted as `MM/DD/YYYY`.
+
+## Download formats
+
+The download screen supports **Word (.docx)** and **PDF (.pdf)**. PDF conversion uses LibreOffice.
+
 ## Optional na fields
 
 Wala nang required fields — pwede mo nang i-submit ang form kahit may mga
