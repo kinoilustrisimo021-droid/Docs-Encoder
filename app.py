@@ -36,6 +36,8 @@ from docx.text.paragraph import Paragraph
 # Config
 # --------------------------------------------------------------------------
 st.set_page_config(page_title="Docx Template Filler", page_icon="📄", layout="centered")
+# Preserve the app's 200 MB upload limit.
+st.set_option("server.maxUploadSize", 200)
 
 PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
 
@@ -230,64 +232,436 @@ def reset_all():
 # --------------------------------------------------------------------------
 # UI
 # --------------------------------------------------------------------------
-st.title("📄 Docx Template Filler")
-st.caption(
-    "Upload your Word template(s) with {{placeholders}} → fill in the fields you need → "
-    "download the completed document(s) instantly, formatting untouched."
+st.markdown(
+    """
+    <style>
+    /* ---------- Global canvas ---------- */
+    html, body, [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 50% 45%, rgba(61, 45, 130, 0.16), transparent 32%),
+            radial-gradient(circle at 12% 18%, rgba(25, 109, 180, 0.10), transparent 26%),
+            radial-gradient(circle at 88% 78%, rgba(0, 190, 210, 0.07), transparent 28%),
+            #050814;
+    }
+
+    [data-testid="stAppViewContainer"] {
+        overflow: hidden;
+        position: relative;
+    }
+
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    footer {
+        display: none !important;
+    }
+
+    /* ---------- Animated atmosphere ---------- */
+    [data-testid="stAppViewContainer"]::before,
+    [data-testid="stAppViewContainer"]::after {
+        content: "";
+        position: fixed;
+        inset: -20%;
+        pointer-events: none;
+        z-index: 0;
+        background-repeat: no-repeat;
+    }
+
+    [data-testid="stAppViewContainer"]::before {
+        background-image:
+            radial-gradient(circle at 18% 28%, rgba(103, 76, 255, .20) 0 2px, transparent 3px),
+            radial-gradient(circle at 74% 22%, rgba(72, 191, 255, .16) 0 2px, transparent 3px),
+            radial-gradient(circle at 83% 70%, rgba(57, 239, 255, .14) 0 2px, transparent 3px),
+            radial-gradient(circle at 31% 78%, rgba(151, 90, 255, .12) 0 1.5px, transparent 3px);
+        background-size: 310px 260px, 370px 310px, 430px 360px, 280px 300px;
+        animation: particleDrift 24s linear infinite;
+        opacity: .8;
+    }
+
+    [data-testid="stAppViewContainer"]::after {
+        background-image:
+            radial-gradient(ellipse 430px 180px at 50% 50%,
+                transparent 56%,
+                rgba(94, 83, 255, .09) 56.3%,
+                transparent 56.8%),
+            radial-gradient(ellipse 620px 270px at 50% 50%,
+                transparent 67%,
+                rgba(41, 196, 255, .065) 67.2%,
+                transparent 67.7%);
+        animation: orbitSpin 32s linear infinite;
+        opacity: .9;
+    }
+
+    .ambient {
+        position: fixed;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 0;
+        filter: blur(2px);
+    }
+
+    .orb-a {
+        width: 170px;
+        height: 170px;
+        left: 7vw;
+        top: 13vh;
+        background: radial-gradient(circle, rgba(117, 76, 255, .18), transparent 68%);
+        animation: orbFloatA 18s ease-in-out infinite;
+    }
+
+    .orb-b {
+        width: 220px;
+        height: 220px;
+        right: 5vw;
+        bottom: 8vh;
+        background: radial-gradient(circle, rgba(38, 196, 255, .13), transparent 70%);
+        animation: orbFloatB 22s ease-in-out infinite;
+    }
+
+    .orb-c {
+        width: 100px;
+        height: 100px;
+        right: 20vw;
+        top: 11vh;
+        background: radial-gradient(circle, rgba(173, 91, 255, .11), transparent 68%);
+        animation: orbFloatC 15s ease-in-out infinite;
+    }
+
+    .doc-float {
+        position: fixed;
+        color: rgba(124, 175, 255, .10);
+        font-size: 42px;
+        line-height: 1;
+        pointer-events: none;
+        z-index: 0;
+        filter: drop-shadow(0 0 14px rgba(74, 181, 255, .10));
+    }
+
+    .doc-one {
+        left: 13vw;
+        bottom: 18vh;
+        animation: docFloatOne 16s ease-in-out infinite;
+    }
+
+    .doc-two {
+        right: 14vw;
+        top: 22vh;
+        font-size: 34px;
+        animation: docFloatTwo 19s ease-in-out infinite;
+    }
+
+    .doc-three {
+        left: 25vw;
+        top: 13vh;
+        font-size: 24px;
+        opacity: .65;
+        animation: docFloatThree 13s ease-in-out infinite;
+    }
+
+    @keyframes particleDrift {
+        0%   { transform: translate3d(0, 0, 0); }
+        50%  { transform: translate3d(22px, -28px, 0); }
+        100% { transform: translate3d(0, 0, 0); }
+    }
+
+    @keyframes orbitSpin {
+        from { transform: rotate(0deg) scale(1); }
+        50%  { transform: rotate(180deg) scale(1.025); }
+        to   { transform: rotate(360deg) scale(1); }
+    }
+
+    @keyframes orbFloatA {
+        0%, 100% { transform: translate3d(0, 0, 0); }
+        50% { transform: translate3d(55px, 35px, 0); }
+    }
+
+    @keyframes orbFloatB {
+        0%, 100% { transform: translate3d(0, 0, 0); }
+        50% { transform: translate3d(-48px, -30px, 0); }
+    }
+
+    @keyframes orbFloatC {
+        0%, 100% { transform: translate3d(0, 0, 0); }
+        50% { transform: translate3d(-28px, 45px, 0); }
+    }
+
+    @keyframes docFloatOne {
+        0%, 100% { transform: translate3d(0, 0, 0) rotate(-7deg); }
+        50% { transform: translate3d(22px, -32px, 0) rotate(4deg); }
+    }
+
+    @keyframes docFloatTwo {
+        0%, 100% { transform: translate3d(0, 0, 0) rotate(8deg); }
+        50% { transform: translate3d(-25px, 28px, 0) rotate(-4deg); }
+    }
+
+    @keyframes docFloatThree {
+        0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+        50% { transform: translate3d(18px, 18px, 0) rotate(10deg); }
+    }
+
+    @keyframes uploaderPulse {
+        0%, 100% {
+            box-shadow:
+                0 0 0 1px rgba(122, 93, 255, .16),
+                0 0 28px rgba(75, 117, 255, .06),
+                inset 0 0 28px rgba(102, 74, 255, .025);
+        }
+        50% {
+            box-shadow:
+                0 0 0 1px rgba(101, 184, 255, .25),
+                0 0 42px rgba(73, 126, 255, .12),
+                inset 0 0 36px rgba(99, 75, 255, .045);
+        }
+    }
+
+    /* ---------- Main layout ---------- */
+    .block-container {
+        position: relative;
+        z-index: 2;
+        max-width: 760px !important;
+        min-height: 100vh;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        display: flex;
+        align-items: center;
+    }
+
+    [data-testid="stVerticalBlock"] {
+        width: 100%;
+    }
+
+    .hero {
+        width: min(680px, 92vw);
+        margin: auto;
+        padding: 44px 46px 48px;
+        text-align: center;
+        border: 1px solid rgba(143, 158, 210, .14);
+        border-radius: 30px;
+        background:
+            linear-gradient(145deg, rgba(17, 22, 40, .72), rgba(7, 12, 26, .58));
+        box-shadow:
+            0 32px 90px rgba(0, 0, 0, .45),
+            0 0 70px rgba(83, 74, 190, .08),
+            inset 0 1px 0 rgba(255,255,255,.035);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+    }
+
+    .doc-icon {
+        width: 78px;
+        height: 78px;
+        margin: 0 auto 22px;
+        display: grid;
+        place-items: center;
+        border-radius: 22px;
+        background: linear-gradient(145deg, rgba(112, 89, 255, .18), rgba(45, 191, 255, .10));
+        border: 1px solid rgba(140, 153, 255, .22);
+        box-shadow:
+            0 0 38px rgba(100, 84, 255, .13),
+            inset 0 0 20px rgba(63, 199, 255, .035);
+        color: #dce8ff;
+        font-size: 42px;
+        animation: docIconFloat 5.5s ease-in-out infinite;
+    }
+
+    @keyframes docIconFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+
+    .hero h1 {
+        margin: 0 !important;
+        color: #f4f7ff;
+        font-size: clamp(2rem, 5vw, 3.15rem);
+        line-height: 1.05;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        text-shadow: 0 0 30px rgba(130, 147, 255, .13);
+    }
+
+    /* ---------- Streamlit uploader ---------- */
+    .uploader-shell {
+        margin: 34px auto 0;
+        animation: uploaderPulse 5s ease-in-out infinite;
+        border-radius: 22px;
+    }
+
+    [data-testid="stFileUploader"] {
+        margin: 0 !important;
+    }
+
+    [data-testid="stFileUploader"] section {
+        border: 1px dashed rgba(117, 157, 226, .34) !important;
+        border-radius: 22px !important;
+        background:
+            linear-gradient(145deg, rgba(16, 24, 44, .76), rgba(9, 15, 30, .70)) !important;
+        min-height: 190px;
+        padding: 32px 24px !important;
+        transition: border-color .25s ease, background .25s ease, transform .25s ease;
+    }
+
+    [data-testid="stFileUploader"] section:hover {
+        border-color: rgba(112, 190, 255, .56) !important;
+        background: linear-gradient(145deg, rgba(19, 29, 52, .84), rgba(10, 18, 35, .76)) !important;
+        transform: translateY(-1px);
+    }
+
+    [data-testid="stFileUploader"] section > div {
+        gap: 8px;
+    }
+
+    [data-testid="stFileUploader"] svg {
+        color: #9caeff !important;
+        filter: drop-shadow(0 0 10px rgba(102, 126, 255, .35));
+    }
+
+    [data-testid="stFileUploader"] button {
+        border: 1px solid rgba(125, 151, 255, .34) !important;
+        background: linear-gradient(135deg, rgba(101, 78, 255, .23), rgba(31, 157, 220, .16)) !important;
+        color: #edf4ff !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        transition: all .2s ease;
+        box-shadow: 0 8px 22px rgba(38, 87, 180, .10);
+    }
+
+    [data-testid="stFileUploader"] button:hover {
+        border-color: rgba(119, 210, 255, .60) !important;
+        box-shadow: 0 0 24px rgba(77, 153, 255, .16);
+    }
+
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] label {
+        color: rgba(218, 227, 247, .72) !important;
+    }
+
+    [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] p {
+        color: rgba(225, 234, 252, .72) !important;
+    }
+
+    /* Hide the default uploader label while retaining the accessible widget. */
+    [data-testid="stFileUploader"] > label {
+        display: none !important;
+    }
+
+    /* Keep downstream form/download UI functional but visually consistent. */
+    .stTextInput input,
+    .stTextArea textarea,
+    [data-testid="stDateInput"] input {
+        background: rgba(10, 16, 31, .72) !important;
+        border: 1px solid rgba(126, 145, 193, .18) !important;
+        color: #eef3ff !important;
+        border-radius: 12px !important;
+    }
+
+    .stButton button,
+    .stDownloadButton button {
+        border-radius: 12px !important;
+    }
+
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+        }
+
+        .hero {
+            padding: 32px 18px 34px;
+            border-radius: 24px;
+        }
+
+        [data-testid="stFileUploader"] section {
+            min-height: 170px;
+            padding: 24px 14px !important;
+        }
+
+        .doc-one { left: 4vw; }
+        .doc-two { right: 5vw; }
+        .doc-three { left: 12vw; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .ambient,
+        .doc-float,
+        .doc-icon,
+        [data-testid="stAppViewContainer"]::before,
+        [data-testid="stAppViewContainer"]::after,
+        .uploader-shell {
+            animation: none !important;
+        }
+    }
+    </style>
+
+    <div class="ambient orb-a"></div>
+    <div class="ambient orb-b"></div>
+    <div class="ambient orb-c"></div>
+    <div class="doc-float doc-one">▱</div>
+    <div class="doc-float doc-two">▱</div>
+    <div class="doc-float doc-three">▱</div>
+    """,
+    unsafe_allow_html=True,
 )
 
-with st.sidebar:
-    st.subheader("How it works")
-    st.markdown(
-        "1. **Upload** one or more `.docx` templates\n"
-        "2. Fill out the **auto-generated form**\n"
-        "3. **Download** the finished document(s) right away"
-    )
-    if state.step != "upload":
-        st.divider()
-        if st.button("🔄 Start over", use_container_width=True):
-            reset_all()
+st.markdown(
+    """
+    <div class="hero">
+        <div class="doc-icon" aria-hidden="true">📄</div>
+        <h1>Docx Template Filler</h1>
+        <div class="uploader-shell">
+    """,
+    unsafe_allow_html=True,
+)
+
+# Single DOCX upload surface. The existing document-processing functions and
+# state flow below remain unchanged.
+uploaded = st.file_uploader(
+    "Upload",
+    type=["docx"],
+    accept_multiple_files=False,
+    help=None,
+)
+
+st.markdown(
+    """
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if uploaded:
+    templates = [{"name": uploaded.name, "bytes": uploaded.getvalue()}]
+
+    placeholders = {}
+    bad_files = []
+    for t in templates:
+        try:
+            doc = Document(io.BytesIO(t["bytes"]))
+        except Exception:
+            bad_files.append(t["name"])
+            continue
+        for key in find_placeholders(doc):
+            placeholders.setdefault(key, None)
+
+    if bad_files:
+        st.error(f"Could not read: {', '.join(bad_files)}. Please re-upload a valid .docx file.")
+
+    if placeholders:
+        if st.button("Continue to form →", type="primary", use_container_width=True):
+            state.templates = templates
+            state.placeholders = list(placeholders.keys())
+            state.values = {k: "" for k in state.placeholders}
+            go_to("fill")
             st.rerun()
-
-# --- Step 1: Upload -------------------------------------------------------
-if state.step == "upload":
-    uploaded = st.file_uploader(
-        "Upload template(s) (.docx)", type=["docx"], accept_multiple_files=True
-    )
-
-    if uploaded:
-        templates = [{"name": f.name, "bytes": f.getvalue()} for f in uploaded]
-
-        placeholders = {}
-        bad_files = []
-        for t in templates:
-            try:
-                doc = Document(io.BytesIO(t["bytes"]))
-            except Exception:
-                bad_files.append(t["name"])
-                continue
-            for key in find_placeholders(doc):
-                placeholders.setdefault(key, None)
-
-        if bad_files:
-            st.error(f"Could not read: {', '.join(bad_files)}. Please re-upload a valid .docx file.")
-
-        if placeholders:
-            st.success(f"Found {len(placeholders)} field(s) across {len(templates)} file(s).")
-            with st.expander("Detected fields", expanded=False):
-                st.write(", ".join(f"{{{{{k}}}}}" for k in placeholders))
-
-            if st.button("Continue to form →", type="primary"):
-                state.templates = templates
-                state.placeholders = list(placeholders.keys())
-                state.values = {k: "" for k in state.placeholders}
-                go_to("fill")
-                st.rerun()
-        else:
-            st.warning(
-                "No `{{placeholder}}` fields were found in the uploaded file(s). "
-                "Make sure the template uses double curly braces, e.g. {{Client_Name}}."
-            )
+    else:
+        st.warning(
+            "No `{{placeholder}}` fields were found in the uploaded file(s). "
+            "Make sure the template uses double curly braces, e.g. {{Client_Name}}."
+        )
 
 # --- Step 2: Dynamic form -> generate & download immediately ---------------
 elif state.step == "fill":
@@ -367,7 +741,6 @@ elif state.step == "done":
                 f["name"],
                 data=f["bytes"],
                 file_name=f["name"],
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key=f"dl_{f['name']}",
             )
 
@@ -381,4 +754,3 @@ elif state.step == "done":
         if st.button("🔄 Start over with new file(s)", use_container_width=True):
             reset_all()
             st.rerun()
-
