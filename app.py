@@ -251,6 +251,24 @@ def inject_theme():
             --accent-grad: linear-gradient(120deg, #7c3aed 0%, #3b82f6 55%, #22d3ee 100%);
         }
 
+        /* Streamlit paints its own built-in widgets (text inputs, text
+           areas, date inputs, etc.) using ITS OWN theme CSS variables, not
+           the ones defined above. Whichever theme got resolved for a given
+           visitor (their own cached Light/Dark choice, "Auto", or this
+           app's Custom theme), those widgets read --primary-color,
+           --background-color, --secondary-background-color and --text-color
+           to decide what to paint. Overriding those variables directly -
+           instead of guessing at internal wrapper class names, which can
+           change between Streamlit versions - forces every built-in widget
+           to use this app's colors regardless of which theme Streamlit
+           thinks is active for that particular visitor. */
+        :root, .stApp, [data-testid="stAppViewContainer"]{
+            --primary-color: #7c3aed !important;
+            --background-color: #05060c !important;
+            --secondary-background-color: rgba(255,255,255,0.03) !important;
+            --text-color: #eef0fb !important;
+        }
+
         html, body, [class*="css"]{
             font-family: 'Inter', sans-serif;
         }
