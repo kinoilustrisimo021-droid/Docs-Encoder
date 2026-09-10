@@ -265,8 +265,8 @@ def inject_theme():
         :root, .stApp, [data-testid="stAppViewContainer"]{
             --primary-color: #7c3aed !important;
             --background-color: #05060c !important;
-            --secondary-background-color: rgba(255,255,255,0.03) !important;
-            --text-color: #eef0fb !important;
+            --secondary-background-color: #4b4b4b !important;
+            --text-color: #ffffff !important;
         }
 
         html, body, [class*="css"]{
@@ -527,28 +527,26 @@ def inject_theme():
         }
 
         /* ---------- inputs ----------
-           Streamlit lets each visitor's OWN browser remember a Light/Dark
-           theme choice in local storage, and that choice silently overrides
-           this app's config.toml theme for that visitor - even though the
-           menu that sets it is hidden below. Rather than depend on that
-           override never happening, every layer of every input widget
-           (the outer wrapper, any inner BaseWeb container, and the actual
-           input/textarea element) is force-styled here with !important, so
-           the app looks identical no matter what theme Streamlit resolves
-           to for a given visitor. */
+           Plain gray fields, white text. Applied at every possible level
+           (Streamlit's own theme variables above, the widget wrapper, AND
+           the raw <input>/<textarea> tag itself) so it lands regardless of
+           which internal DOM structure this Streamlit version uses. */
         [data-testid="stTextInput"] [data-baseweb],
         [data-testid="stTextArea"] [data-baseweb],
         [data-testid="stDateInput"] [data-baseweb],
-        .stTextInput input, .stTextArea textarea, .stDateInput input{
-            background: rgba(255,255,255,0.03) !important;
-            background-color: rgba(255,255,255,0.03) !important;
-            border: 1px solid var(--panel-border) !important;
+        .stTextInput input, .stTextArea textarea, .stDateInput input,
+        .stApp input[type="text"], .stApp textarea, .stApp input[type="date"],
+        input, textarea{
+            background: #4b4b4b !important;
+            background-color: #4b4b4b !important;
+            border: 1px solid #6b6b6b !important;
             border-radius: 10px !important;
-            color: var(--text-primary) !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
             box-shadow: none !important;
         }
         .stTextInput input::placeholder, .stTextArea textarea::placeholder{
-            color: var(--text-muted) !important;
+            color: rgba(255,255,255,0.6) !important;
             opacity: 1 !important;
         }
         [data-testid="stTextInput"]:focus-within [data-baseweb],
@@ -564,15 +562,15 @@ def inject_theme():
         }
 
         /* the date-picker calendar renders in a portal outside the card
-           (attached near <body>), so it needs its own explicit dark
-           styling - it will not inherit anything scoped to .main above */
+           (attached near <body>), so it needs its own explicit styling -
+           it will not inherit anything scoped to .main above */
         div[data-baseweb="popover"]{
-            background: var(--bg-1) !important;
-            border: 1px solid var(--panel-border) !important;
+            background: #4b4b4b !important;
+            border: 1px solid #6b6b6b !important;
             border-radius: 12px !important;
         }
         div[data-baseweb="popover"] *{
-            color: var(--text-primary) !important;
+            color: #ffffff !important;
         }
         div[data-baseweb="popover"] [aria-selected="true"]{
             background: var(--accent-grad) !important;
