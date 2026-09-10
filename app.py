@@ -508,16 +508,57 @@ def inject_theme():
             color: var(--text-primary) !important;
         }
 
-        /* ---------- inputs ---------- */
+        /* ---------- inputs ----------
+           Streamlit lets each visitor's OWN browser remember a Light/Dark
+           theme choice in local storage, and that choice silently overrides
+           this app's config.toml theme for that visitor - even though the
+           menu that sets it is hidden below. Rather than depend on that
+           override never happening, every layer of every input widget
+           (the outer wrapper, any inner BaseWeb container, and the actual
+           input/textarea element) is force-styled here with !important, so
+           the app looks identical no matter what theme Streamlit resolves
+           to for a given visitor. */
+        [data-testid="stTextInput"] [data-baseweb],
+        [data-testid="stTextArea"] [data-baseweb],
+        [data-testid="stDateInput"] [data-baseweb],
         .stTextInput input, .stTextArea textarea, .stDateInput input{
             background: rgba(255,255,255,0.03) !important;
+            background-color: rgba(255,255,255,0.03) !important;
             border: 1px solid var(--panel-border) !important;
             border-radius: 10px !important;
             color: var(--text-primary) !important;
+            box-shadow: none !important;
         }
-        .stTextInput label, .stTextArea label, .stDateInput label{
+        .stTextInput input::placeholder, .stTextArea textarea::placeholder{
+            color: var(--text-muted) !important;
+            opacity: 1 !important;
+        }
+        [data-testid="stTextInput"]:focus-within [data-baseweb],
+        [data-testid="stTextArea"]:focus-within [data-baseweb],
+        [data-testid="stDateInput"]:focus-within [data-baseweb]{
+            border-color: rgba(124,58,237,0.65) !important;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.18) !important;
+        }
+        .stTextInput label, .stTextArea label, .stDateInput label,
+        [data-testid="stWidgetLabel"] p{
             color: var(--text-muted) !important;
             font-size: 0.85rem !important;
+        }
+
+        /* the date-picker calendar renders in a portal outside the card
+           (attached near <body>), so it needs its own explicit dark
+           styling - it will not inherit anything scoped to .main above */
+        div[data-baseweb="popover"]{
+            background: var(--bg-1) !important;
+            border: 1px solid var(--panel-border) !important;
+            border-radius: 12px !important;
+        }
+        div[data-baseweb="popover"] *{
+            color: var(--text-primary) !important;
+        }
+        div[data-baseweb="popover"] [aria-selected="true"]{
+            background: var(--accent-grad) !important;
+            color: #fff !important;
         }
 
         /* ---------- alerts, expanders ---------- */
